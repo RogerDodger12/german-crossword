@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Wortkreuz">
+<meta name="theme-color" content="#2b2d42">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Wortkreuz</title>
+<style>
+:root{
+  --ink:#2b2d42; --paper:#f4f1ea; --tile:#ffffff; --sel:#ffd166; --word:#f6d8b8;
+  --accent:#d4572a; --good:#06a77d; --muted:#6b778d; --line:#c9d3e0;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);
+  font-family:"Avenir Next","Trebuchet MS",system-ui,sans-serif;
+  -webkit-user-select:none;user-select:none;overscroll-behavior:none;
+}
+#app{height:100vh;height:100dvh;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top)}
+.screen{display:none;flex:1;min-height:0;flex-direction:column}
+.screen.on{display:flex}
+button{font-family:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+
+/* ---------- Home ---------- */
+#home{overflow:auto;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+.hero{padding:22px 4px 12px}
+.hero h1{margin:0;font-size:38px;line-height:1;letter-spacing:-.5px}
+.hero p{margin:6px 0 0;color:var(--muted);font-size:16px}
+.chips{display:flex;gap:10px;margin:10px 0 18px}
+.chip{flex:1;background:var(--ink);color:#fff;border-radius:14px;padding:10px 14px}
+.chip b{display:block;font-size:26px;line-height:1.1}
+.chip span{font-size:13px;opacity:.8}
+.unit{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  background:var(--tile);border:2px solid var(--line);border-radius:16px;padding:14px 16px;margin-bottom:10px;color:var(--ink);
+}
+.unit .num{
+  flex:none;width:40px;height:40px;border-radius:12px;background:var(--word);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;
+}
+.unit .txt{flex:1}
+.unit .txt b{display:block;font-size:18px}
+.unit .txt span{font-size:14px;color:var(--muted)}
+.unit .tag{font-size:14px;font-weight:700;color:var(--accent)}
+.unit.done{border-color:var(--good)}
+.unit.done .num{background:var(--good);color:#fff}
+.unit.done .tag{color:var(--good)}
+.unit.locked{opacity:.55;cursor:default}
+.unit.locked .num{background:#dfe5ee}
+.row2{display:flex;gap:10px;margin-top:14px}
+.ghost{flex:1;padding:12px;border-radius:12px;border:2px solid var(--ink);background:transparent;color:var(--ink);font-weight:700;font-size:15px}
+.ghost.small{border-color:var(--line);color:var(--muted);font-weight:600}
+.sect{margin:20px 4px 8px;font-size:13px;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.unit.extra .num{font-size:20px}
+.studybar{display:flex;gap:8px;margin:8px 0 2px}
+#modal .studybar button.alt{margin:0;flex:1;padding:9px;font-size:14px}
+table.study.hide td.en:not(.peek){color:transparent;background:#e6ebf2;border-radius:6px}
+td.en{cursor:pointer}
+
+/* ---------- Play ---------- */
+#topbar{display:flex;align-items:center;gap:10px;background:var(--ink);color:#fff;padding:8px 12px}
+#topbar button{background:transparent;border:0;color:#fff;font-size:16px;font-weight:700;padding:8px 6px}
+#topbar .ttl{flex:1;text-align:center;font-weight:700}
+#topbar .pts{font-size:14px;min-width:70px;text-align:right}
+#clue{background:var(--sel);padding:10px 14px;font-size:17px;font-weight:700;min-height:52px;display:flex;align-items:center}
+#board{flex:1;min-height:0;display:flex}
+#gridwrap{flex:1;min-width:0;min-height:0;display:flex;align-items:center;justify-content:center;padding:6px}
+#cluepanel{display:none;width:310px;flex:none;overflow:auto;background:#fff;border-left:2px solid var(--line);padding:2px 14px 18px}
+.cl h3{margin:14px 0 6px;font-size:15px;color:var(--muted)}
+.cl ul{list-style:none;margin:0;padding:0}
+.cl li{display:flex;gap:10px;padding:8px;border-radius:10px;cursor:pointer;font-size:16px;line-height:1.25}
+.cl li b{min-width:22px}
+.cl li.cur{background:var(--sel)}
+.cl li.fin{color:var(--good)}
+.cl li.fin span{text-decoration:line-through}
+@media (min-width:760px){#cluepanel{display:block}#clueBtn{display:none}}
+@media (min-width:900px) and (hover:hover) and (pointer:fine){#kb{display:none}#tip{display:block}}
+#grid{display:grid;gap:2px}
+.cell{
+  width:var(--s);height:var(--s);display:flex;align-items:center;justify-content:center;
+  font-size:calc(var(--s) * .56);font-weight:800;position:relative;border-radius:5px;
+}
+.cell.on{background:var(--tile);border:2px solid var(--ink)}
+.cell.word{background:var(--word)}
+.cell.sel{background:var(--sel)}
+.cell.given{color:var(--accent)}
+.cell.bad{color:#fff;background:var(--accent);border-color:var(--accent)}
+.cell .n{position:absolute;top:1px;left:3px;font-size:calc(var(--s) * .27);font-weight:700;color:var(--muted);line-height:1}
+.cell.bad .n{color:#fff}
+#revealRow{display:none;padding:6px 10px 0}
+#revealRow button{width:100%;padding:11px;border:2px solid var(--accent);border-radius:12px;background:#fff;color:var(--accent);font-size:15px;font-weight:700}
+#actions{display:flex;gap:8px;padding:6px 10px}
+#actions button{flex:1;padding:11px;font-size:15px;border:0;border-radius:12px;background:var(--ink);color:#fff;font-weight:700}
+#actions button:disabled{opacity:.4}
+#kbwrap{padding:4px 4px calc(10px + env(safe-area-inset-bottom));background:#dde4ee}
+#tip{display:none;text-align:center;font-size:14px;color:var(--muted);padding:2px 8px 4px}
+.k.acc{max-width:44px;background:#fff1c4}
+.krow{display:flex;justify-content:center;gap:4px;margin:4px 0}
+.k{flex:1;max-width:38px;height:46px;border:0;border-radius:7px;background:#fff;color:var(--ink);font-size:19px;font-weight:700;box-shadow:0 1px 0 #8f9bb0}
+.k:active{background:var(--sel)}
+.k.wide{max-width:58px;font-size:17px}
+
+/* ---------- Modal ---------- */
+#modal{position:fixed;inset:0;background:rgba(20,33,61,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:5}
+#modal .box{background:#fff;border-radius:20px;padding:22px;max-width:400px;width:100%;max-height:86vh;overflow:auto;-webkit-user-select:text;user-select:text}
+#modal h2{margin:0 0 8px;font-size:26px}
+#modal p{margin:6px 0}
+#modal button.main{margin-top:14px;width:100%;padding:13px;border:0;border-radius:12px;background:var(--accent);color:#fff;font-size:17px;font-weight:700}
+#modal button.alt{margin-top:8px;width:100%;padding:12px;border:2px solid var(--ink);border-radius:12px;background:#fff;color:var(--ink);font-size:16px;font-weight:700}
+.badge{display:inline-block;background:var(--sel);border-radius:999px;padding:5px 12px;margin:4px 4px 0 0;font-size:14px;font-weight:700}
+.badge.off{opacity:.3}
+table{width:100%;border-collapse:collapse;margin-top:8px}
+td{padding:6px 4px;border-bottom:1px solid #e6ebf2;font-size:16px}
+td.spkcell{width:48px;text-align:right}
+.spk{border:0;background:#eef2f9;border-radius:10px;width:40px;height:36px;font-size:18px;padding:0;cursor:pointer}
+td:first-child{font-weight:800}
+@media (prefers-reduced-motion:no-preference){
+  .cell{transition:background .12s}
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Home -->
+  <div id="home" class="screen on">
+    <div class="hero">
+      <h1>Wortkreuz</h1>
+      <p>English clues, German answers. Nouns include their article (der, die, das).</p>
+    </div>
+    <div class="chips">
+      <div class="chip"><b id="hPts">0</b><span>points</span></div>
+      <div class="chip"><b id="hStreak">0</b><span>day streak</span></div>
+    </div>
+    <div id="extras"></div>
+    <h3 class="sect">Levels</h3>
+    <div id="unitList"></div>
+    <div class="row2">
+      <button class="ghost" id="badgesBtn">My badges</button>
+      <button class="ghost small" id="resetBtn">Reset progress</button>
+    </div>
+    <div class="row2">
+      <button class="ghost small" id="openAllBtn">Unlock all units</button>
+      <button class="ghost small" id="soundBtn">Word sounds: On</button>
+    </div>
+  </div>
+
+  <!-- Puzzle -->
+  <div id="play" class="screen">
+    <div id="topbar">
+      <button id="backBtn" aria-label="Back to home">&lsaquo; Home</button>
+      <div class="ttl" id="ptitle"></div>
+      <div class="pts" id="ppts"></div>
+    </div>
+    <div id="clue">Tap a square to begin</div>
+    <div id="board">
+      <div id="gridwrap"><div id="grid"></div></div>
+      <aside id="cluepanel" aria-label="All clues"></aside>
+    </div>
+    <div id="revealRow"><button id="revealBtn">Out of hints? Reveal this word</button></div>
+    <div id="actions">
+      <button id="hintBtn">Hint (3)</button>
+      <button id="clueBtn">All clues</button>
+      <button id="dirBtn">Across / Down</button>
+    </div>
+    <div id="kbwrap">
+      <div class="krow" id="acc"></div>
+      <div id="tip">Typing on a keyboard? Type &auml;, &ouml;, &uuml; and &szlig; directly, or press &quot; then a, o or u (&quot; + a = &Auml;), or &#39; then s for &szlig;.</div>
+      <div id="kb"></div>
+    </div>
+  </div>
+
+</div>
+<div id="modal"><div class="box" id="mbox"></div></div>
+
+<script>
+// Always fetch a fresh copy of the word list so updates show up right away (no stale cache)
+document.write('<script src="units.js?v=' + Date.now() + '"><\/script>');
+</script>
+<script src="audio-index.js"></script>
+<script>
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(()=>{}));
+</script>
+<script>
+if (!window.UNITS || !window.UNITS.length){
+  document.body.innerHTML = '<p style="padding:24px;font:18px system-ui">Could not load the word lists. Make sure <b>units.js</b> is in the same place as index.html.</p>';
+  throw new Error('units.js did not load');
+}
+/* ======================= Save data ======================= */
+const SAVE_KEY = 'wortkreuz_v1';
+const BLANK = () => ({points:0, streak:0, last:'', badges:[], done:{}, plays:{}, openAll:false, sound:true, weak:{}, daily:''});
+let save = (function(){
+  try { const s = JSON.parse(localStorage.getItem(SAVE_KEY)); if (s) return Object.assign(BLANK(), s); } catch(e) {}
+  return BLANK();
+})();
+function persist(){ try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch(e) {} }
+
+const BADGES = {
+  first:   'First puzzle',
+  nohint:  'No hints needed',
+  streak3: '3-day streak',
+  streak7: '7-day streak',
+  units3:  'Three units done',
+  units10: 'Ten units done',
+  pts500:  '500 points',
+  daily:   'Daily puzzle',
+  practice:'Practice puzzle'
+};
+
+/* ======================= Helpers ======================= */
+const $ = id => document.getElementById(id);
+// Keep ß as its own letter (JavaScript would otherwise turn it into SS when upper-casing)
+function answerForm(s){ return s.normalize('NFC').replace(/ß/g,'\u0001').toUpperCase().replace(/\u0001/g,'ß').replace(/[^A-ZÄÖÜß]/g,''); }
+function hashStr(s){ let h = 2166136261; for (let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h,16777619); } return h>>>0; }
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function dateStr(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0'); return y+'-'+m+'-'+dd; }
+function today(){ return dateStr(new Date()); }
+function yesterday(){ const d=new Date(); d.setDate(d.getDate()-1); return dateStr(d); }
+
+/* ======================= Crossword generator ======================= */
+// ===LAYOUT START===
+function layout(words, seed){
+  const rnd = mulberry32(seed);
+  const key = (r,c) => r+','+c;
+  let best = null;
+
+  for (let attempt=0; attempt<400; attempt++){
+    const items = words.slice();
+    for (let i=items.length-1;i>0;i--){ const j=Math.floor(rnd()*(i+1)); [items[i],items[j]]=[items[j],items[i]]; }
+    items.sort((x,y)=>y.a.length-x.a.length);
+
+    const grid = new Map(), placed = [];
+    let minr=0,maxr=0,minc=0,maxc=0;
+
+    const can = (w,r,c,d) => {
+      const dr = d==='A'?0:1, dc = d==='A'?1:0;
+      if (grid.has(key(r-dr,c-dc))) return 0;
+      if (grid.has(key(r+dr*w.length,c+dc*w.length))) return 0;
+      let inter = 0;
+      for (let i=0;i<w.length;i++){
+        const rr=r+dr*i, cc=c+dc*i, ex=grid.get(key(rr,cc));
+        if (ex !== undefined){ if (ex!==w[i]) return 0; inter++; }
+        else if (grid.has(key(rr+dc,cc+dr)) || grid.has(key(rr-dc,cc-dr))) return 0;
+      }
+      return inter;
+    };
+    const put = (it,r,c,d) => {
+      const dr = d==='A'?0:1, dc = d==='A'?1:0;
+      for (let i=0;i<it.a.length;i++){
+        const rr=r+dr*i, cc=c+dc*i;
+        grid.set(key(rr,cc), it.a[i]);
+        if(rr<minr)minr=rr; if(rr>maxr)maxr=rr; if(cc<minc)minc=cc; if(cc>maxc)maxc=cc;
+      }
+      placed.push({it,r,c,d});
+    };
+
+    put(items[0],0,0,'A');
+    for (let k=1;k<items.length;k++){
+      const it = items[k], w = it.a, opts = [];
+      for (const p of placed){
+        const pw = p.it.a;
+        for (let i=0;i<w.length;i++) for (let j=0;j<pw.length;j++){
+          if (w[i]!==pw[j]) continue;
+          const d = p.d==='A'?'D':'A';
+          const r = p.d==='A' ? p.r-i : p.r+j;
+          const c = p.d==='A' ? p.c+j : p.c-i;
+          if (can(w,r,c,d)){
+            const nr0=Math.min(minr,r), nr1=Math.max(maxr, d==='D'?r+w.length-1:r);
+            const nc0=Math.min(minc,c), nc1=Math.max(maxc, d==='A'?c+w.length-1:c);
+            opts.push({r,c,d,area:(nr1-nr0+1)*(nc1-nc0+1)});
+          }
+        }
+      }
+      if (opts.length){
+        const m = Math.min(...opts.map(o=>o.area));
+        const tight = opts.filter(o=>o.area<=m+2);
+        const o = tight[Math.floor(rnd()*tight.length)];
+        put(it,o.r,o.c,o.d);
+      }
+    }
+    const hh = maxr-minr+1, ww = maxc-minc+1;
+    const area = hh*ww + 14*Math.max(hh,ww) + 80*Math.max(0, Math.max(hh,ww)-15);   // prefer compact, squarish grids for phone screens
+    if (!best || placed.length>best.placed.length || (placed.length===best.placed.length && area<best.area)){
+      best = {placed, area, minr, minc, h:hh, w:ww};
+    }
+  }
+
+  const entries = best.placed.map(p => ({
+    a:p.it.a, de:p.it.de, en:p.it.en, d:p.d, r:p.r-best.minr, c:p.c-best.minc
+  }));
+  const starts = [...new Set(entries.map(e=>e.r+','+e.c))]
+    .map(s=>s.split(',').map(Number)).sort((x,y)=>x[0]-y[0]||x[1]-y[1]);
+  const num = {}; starts.forEach((s,i)=>{ num[s[0]+','+s[1]] = i+1; });
+  entries.forEach(e => { e.n = num[e.r+','+e.c]; });
+  return {h:best.h, w:best.w, entries, missing: words.length - entries.length};
+}
+// ===LAYOUT END===
+// Mixed word sets from different levels occasionally leave a word unplaced; retry with new layouts.
+function layoutAll(words, seed, tries){
+  let best = null;
+  for (let t=0; t<(tries||14); t++){
+    const L = layout(words, seed + t*104729);
+    if (!best || L.missing < best.missing) best = L;
+    if (L.missing === 0) break;
+  }
+  return best;
+}
+
+/* ======================= Home screen ======================= */
+function unlocked(i){ return save.openAll || i===0 || !!save.done[UNITS[i-1].id]; }
+
+function renderHome(){
+  $('hPts').textContent = save.points;
+  $('hStreak').textContent = save.streak;
+  $('openAllBtn').textContent = save.openAll ? 'Lock units in order' : 'Unlock all units';
+  $('soundBtn').textContent = 'Word sounds: ' + (save.sound ? 'On' : 'Off');
+  $('soundBtn').style.display = hasSound() ? '' : 'none';
+  renderExtras();
+  const list = $('unitList'); list.innerHTML = '';
+  UNITS.forEach((u,i)=>{
+    const open = unlocked(i), done = !!save.done[u.id];
+    const b = document.createElement('button');
+    b.className = 'unit' + (done?' done':'') + (open?'':' locked');
+    b.innerHTML = '<div class="num">'+(done?'&#10003;':(i+1))+'</div>'
+      + '<div class="txt"><b>'+u.title+'</b><span>'+u.words.length+' words</span></div>'
+      + '<div class="tag">'+(!open?'Locked':(done?'Play again':'Start'))+'</div>';
+    if (open) b.onclick = () => startUnit(i);
+    else b.setAttribute('aria-disabled','true');
+    list.appendChild(b);
+  });
+}
+function renderExtras(){
+  const ex = $('extras'); ex.innerHTML = '';
+  const dailyDone = save.daily === today();
+  const hasDone = Object.keys(save.done).length > 0;
+  const weakN = weakList().length;
+  const mk = (cls, glyph, title, sub, tag, on) => {
+    const b = document.createElement('button');
+    b.className = 'unit extra ' + cls;
+    b.innerHTML = '<div class="num">'+glyph+'</div><div class="txt"><b>'+title+'</b><span>'+sub+'</span></div><div class="tag">'+tag+'</div>';
+    if (on) b.onclick = on; else b.setAttribute('aria-disabled','true');
+    ex.appendChild(b);
+  };
+  mk(dailyDone ? 'done' : '', '&#9733;', 'Daily puzzle', dailyDone ? 'Done for today. See you tomorrow!' : '10 mixed words, new every day',
+     dailyDone ? 'Done' : 'Play', dailyDone ? null : startDaily);
+  const can = hasDone || weakN > 0;
+  mk(can ? '' : 'locked', '&#8635;', 'Practice',
+     weakN > 0 ? weakN+' tricky word'+(weakN>1?'s':'')+' to work on' : (hasDone ? 'Mixed review of your finished levels' : 'Finish a level to unlock'),
+     can ? 'Start' : 'Locked', can ? startPractice : null);
+  mk('', 'Aa', 'Study word lists', 'Review and hear every word', 'Open', showStudyMenu);
+}
+function showScreen(id){
+  $('home').classList.toggle('on', id==='home');
+  $('play').classList.toggle('on', id==='play');
+}
+function goHome(){ closeM(); showScreen('home'); renderHome(); }
+
+/* ======================= Pronunciation ======================= */
+// Uses the phone's built-in German voice (works offline) when a recording is missing. Prefers
+// standard German, and higher-quality "Enhanced"/"Premium" voices when they are installed.
+const TTS = ('speechSynthesis' in window) && ('SpeechSynthesisUtterance' in window);
+let deVoice = null;
+function pickVoice(){
+  if (!TTS) return;
+  const vs = speechSynthesis.getVoices().filter(v => /^de([-_]|$)/i.test(v.lang));
+  if (!vs.length){ deVoice = null; return; }
+  const gimmick = /bad news|bahh|bells|boing|bubbles|cellos|good news|jester|organ|superstar|trinoids|whisper|wobble|zarvox/i;
+  const score = v => {
+    const L = v.lang.replace('_','-').toLowerCase(), n = v.name.toLowerCase();
+    let sc = 0;
+    if (L==='de-de') sc += 30; else if (L==='de-at') sc += 15; else if (L==='de-ch') sc += 10;
+    if (/premium/.test(n)) sc += 20; else if (/enhanced|natural/.test(n)) sc += 12;
+    if (gimmick.test(n)) sc -= 100;
+    if (v.localService) sc += 3;
+    return sc;
+  };
+  deVoice = vs.slice().sort((a,b) => score(b) - score(a))[0];
+}
+if (TTS){ pickVoice(); try { speechSynthesis.addEventListener('voiceschanged', pickVoice); } catch(e) {} }
+function hasSound(){ return TTS || !!window.AUDIO; }
+
+// Recorded clips are loaded into memory when a unit opens, so a tap plays instantly
+// (and still works on the phone's silent setting, which blocks the built-in voice).
+const AUD = {}, TRIED = {};
+function preloadAudio(words){
+  if (!window.AUDIO) return;
+  words.forEach(es => {
+    const path = window.AUDIO[es];
+    if (!path || TRIED[es]) return;
+    TRIED[es] = true;
+    fetch(path).then(r => { if (!r.ok) throw new Error('missing'); return r.blob(); })
+      .then(b => { AUD[es] = URL.createObjectURL(b); })
+      .catch(() => { TRIED[es] = false; });
+  });
+}
+let sayQ = [], sayBusy = false, curAud = null, sayGen = 0;
+function stopSay(){
+  sayGen++; sayQ.length = 0; sayBusy = false;
+  if (curAud){ try { curAud.pause(); } catch(e) {} curAud = null; }
+  if (TTS){ try { speechSynthesis.cancel(); } catch(e) {} }
+}
+function say(text, flush){
+  if (!text || !hasSound()) return;
+  if (flush) stopSay();
+  sayQ.push(text);
+  if (!sayBusy) nextSay();
+}
+function nextSay(){
+  const text = sayQ.shift();
+  if (!text){ sayBusy = false; return; }
+  sayBusy = true;
+  let finished = false;
+  const gen = sayGen;
+  const done = () => { if (finished || gen !== sayGen) return; finished = true; setTimeout(() => { if (gen === sayGen) nextSay(); }, 300); };
+  setTimeout(done, 5000);                       // never let the queue get stuck
+  const url = AUD[text];
+  if (url){
+    try {
+      const a = new Audio(url); curAud = a;
+      a.onended = done; a.onerror = () => { curAud = null; voiceSay(text, done); };
+      const pr = a.play();
+      if (pr && pr.catch) pr.catch(() => { curAud = null; voiceSay(text, done); });
+      return;
+    } catch(e) {}
+  }
+  voiceSay(text, done);
+}
+function voiceSay(text, done){
+  if (!TTS){ done(); return; }
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    if (deVoice){ u.voice = deVoice; u.lang = deVoice.lang; } else u.lang = 'de-DE';
+    u.rate = 0.85; u.onend = done; u.onerror = done;
+    speechSynthesis.speak(u);
+  } catch(e) { done(); }
+}
+function sayDone(k){
+  // when the cell just typed finishes a word, say that word out loud (once)
+  if (!save.sound || !P) return;
+  P.entries.forEach(e => {
+    const id = e.r+','+e.c+e.d;
+    if (P.said[id]) return;
+    const cs = cellsOf(e);
+    if (cs.includes(k) && cs.every(c => P.guess[c] === P.ans[c])){ P.said[id] = true; say(e.de); }
+  });
+}
+function noteWrong(k){
+  // a fully filled word that isn't right counts as tricky
+  P.entries.forEach(e => {
+    const cs = cellsOf(e);
+    if (cs.includes(k) && cs.every(c => P.guess[c]) && !cs.every(c => P.guess[c] === P.ans[c])) P.flag[e.de] = true;
+  });
+}
+function sayRecap(i){ if (P && P.recap[i]) say(P.recap[i].de, true); }
+
+/* ======================= Puzzle ======================= */
+let P = null;
+
+function startUnit(i){
+  const u = UNITS[i];
+  const plays = save.plays[u.id] || 0;
+  beginPuzzle({kind:'unit', index:i, unit:u, title:'Unit '+(i+1)+': '+u.title, words:u.words, seed:hashStr(u.id) + plays*7919});
+}
+// For mixed puzzles: if a word can't be fitted in, swap it for another word from the pool.
+function adaptiveLayout(chosen, spares, seed){
+  const n = chosen.length; spares = spares.slice();
+  let best = null;
+  for (let round=0; round<14; round++){
+    const ws = chosen.map(x => ({de:x.de, en:x.en, a:answerForm(x.de)}));
+    const L = layoutAll(ws, seed + round*7, 4);
+    if (!best || L.missing < best.L.missing) best = {ws, L};
+    if (L.missing === 0) break;
+    const placed = new Set(L.entries.map(e => e.de));
+    const keep = chosen.filter(w => placed.has(w.de));
+    while (keep.length < n && spares.length) keep.push(spares.shift());
+    if (keep.length === chosen.length && keep.every((w,i) => w === chosen[i])) break;
+    chosen = keep;
+  }
+  return best;
+}
+function beginPuzzle(o){
+  closeM();
+  let words = o.words.map(x => ({de:x.de, en:x.en, a:answerForm(x.de)}));
+  let L;
+  if (o.spares){ const r = adaptiveLayout(o.words, o.spares, o.seed); words = r.ws; L = r.L; }
+  else L = layoutAll(words, o.seed);
+
+  P = {kind:o.kind, index:o.index, unit:o.unit, h:L.h, w:L.w, entries:L.entries, ans:{}, nums:{}, guess:{}, given:{},
+       sel:null, dir:'A', hints:3, reveals:1, revealUsed:false, said:{}, flag:{}, recap:[], done:false, missing:L.missing};
+  preloadAudio(P.entries.map(e => e.de));
+  P.entries.forEach(e => {
+    for (let k=0;k<e.a.length;k++){
+      const r = e.r + (e.d==='D'?k:0), c = e.c + (e.d==='A'?k:0);
+      P.ans[r+','+c] = e.a[k];
+    }
+    P.nums[e.r+','+e.c] = e.n;
+  });
+
+  const first = P.entries.slice().sort((a,b)=>a.n-b.n || (a.d==='A'?-1:1))[0];
+  P.sel = first.r+','+first.c; P.dir = first.d;
+  $('ptitle').textContent = o.title;
+  buildGrid();
+  showScreen('play');
+  fit();
+  render();
+}
+
+/* ---------- Daily puzzle, Practice, Study ---------- */
+function seededPick(arr, n, seed){
+  const a = arr.slice(), r = mulberry32(seed);
+  for (let i=a.length-1;i>0;i--){ const j = Math.floor(r()*(i+1)); [a[i],a[j]] = [a[j],a[i]]; }
+  return a.slice(0, n);
+}
+function reviewPool(){            // words from finished levels (or level 1 for a brand-new player)
+  const out = [];
+  UNITS.forEach(u => { if (save.done[u.id]) u.words.forEach(w => out.push(w)); });
+  return out.length >= 10 ? out : UNITS[0].words.slice();
+}
+function weakList(){              // tricky words, worst first
+  const known = {}; UNITS.forEach(u => u.words.forEach(w => known[w.de] = w));
+  return Object.keys(save.weak).filter(es => known[es] && save.weak[es] > 0)
+    .sort((a,b) => save.weak[b] - save.weak[a]).map(es => known[es]);
+}
+function startDaily(){
+  if (save.daily === today()) return;
+  const order = seededPick(reviewPool(), 999, hashStr('daily-'+today()));
+  beginPuzzle({kind:'daily', index:-1, unit:{id:'daily', title:'Daily puzzle'}, title:'Daily puzzle',
+    words:order.slice(0,10), spares:order.slice(10), seed:hashStr('dl'+today())});
+}
+function startPractice(){
+  const weak = weakList();
+  const have = new Set(weak.slice(0, 10).map(w => w.de));
+  const rest = seededPick(reviewPool().filter(w => !have.has(w.de)), 999, Date.now());
+  let words = weak.slice(0, 10), spares = weak.slice(10).concat(rest);
+  while (words.length < 10 && spares.length) words.push(spares.shift());
+  if (words.length < 6) return;
+  beginPuzzle({kind:'practice', index:-1, unit:{id:'practice', title:'Practice'}, title:'Practice',
+    words:words, spares:spares, seed:Date.now() % 1000000007});
+}
+let studyHide = false;
+function showStudyMenu(){
+  let h = '<h2>Study word lists</h2><p>Pick a level to review its words and hear them.</p>', locked = 0;
+  UNITS.forEach((u,i) => {
+    if (unlocked(i)) h += '<button class="alt" onclick="showStudy('+i+')">'+(i+1)+'. '+u.title+'</button>'; else locked++;
+  });
+  if (locked) h += '<p style="color:#6b778d;font-size:14px">'+locked+' more level'+(locked>1?'s':'')+' will appear as you unlock them.</p>';
+  h += '<button class="main" onclick="closeM()">Close</button>';
+  show(h);
+}
+function showStudy(i, hide){
+  if (hide !== undefined) studyHide = hide;
+  const u = UNITS[i];
+  preloadAudio(u.words.map(w => w.de));
+  let h = '<h2>'+(i+1)+'. '+u.title+'</h2>';
+  h += '<div class="studybar"><button class="alt" onclick="showStudy('+i+','+(!studyHide)+')">'+(studyHide?'Show English':'Hide English')+'</button>'
+     + '<button class="alt" onclick="playAllStudy('+i+')">&#9654; Play all</button></div>';
+  h += '<table class="study'+(studyHide?' hide':'')+'">' + u.words.map((w,j) =>
+     '<tr><td>'+w.de+'</td><td class="en" onclick="this.classList.toggle(\'peek\')">'+w.en+'</td>'
+   + (hasSound() ? '<td class="spkcell"><button class="spk" onclick="sayStudy('+i+','+j+')" aria-label="Hear '+w.de+'">&#128266;</button></td>' : '') + '</tr>').join('') + '</table>';
+  h += '<button class="alt" onclick="showStudyMenu()">All levels</button><button class="main" onclick="closeM()">Close</button>';
+  show(h);
+}
+function sayStudy(i,j){ say(UNITS[i].words[j].de, true); }
+function playAllStudy(i){ stopSay(); UNITS[i].words.forEach(w => say(w.de)); }
+
+function buildGrid(){
+  const g = $('grid'); g.innerHTML = '';
+  g.style.gridTemplateColumns = 'repeat('+P.w+', var(--s))';
+  for (let r=0;r<P.h;r++) for (let c=0;c<P.w;c++){
+    const k = r+','+c, d = document.createElement('div');
+    d.className = 'cell'; d.id = 'c'+k;
+    if (P.ans[k]){
+      d.classList.add('on');
+      if (P.nums[k]){ const n=document.createElement('span'); n.className='n'; n.textContent=P.nums[k]; d.appendChild(n); }
+      const t=document.createElement('span'); t.id='t'+k; d.appendChild(t);
+      d.onclick = () => tap(r,c);
+    }
+    g.appendChild(d);
+  }
+}
+function fit(){
+  if (!P) return;
+  const wrap = $('gridwrap');
+  const aw = wrap.clientWidth - 12, ah = wrap.clientHeight - 12;
+  const mx = window.innerWidth >= 760 ? 58 : 46;
+  const s = Math.max(14, Math.min(mx, Math.floor(Math.min(aw/P.w, ah/P.h)) - 2));
+  $('grid').style.setProperty('--s', s+'px');
+}
+
+function wordAt(r,c,d){
+  return P.entries.find(e => e.d===d && (d==='A'
+    ? (e.r===r && c>=e.c && c<e.c+e.a.length)
+    : (e.c===c && r>=e.r && r<e.r+e.a.length)));
+}
+function curWord(){ if(!P||!P.sel) return null; const [r,c]=P.sel.split(',').map(Number); return wordAt(r,c,P.dir); }
+function other(d){ return d==='A'?'D':'A'; }
+
+function tap(r,c){
+  if (P.done) return;
+  const k = r+','+c;
+  if (P.sel===k){ if (wordAt(r,c,other(P.dir))) P.dir = other(P.dir); }
+  else { P.sel = k; if (!wordAt(r,c,P.dir)) P.dir = other(P.dir); }
+  render();
+}
+function toggleDir(){
+  if (!P || P.done || !P.sel) return;
+  const [r,c] = P.sel.split(',').map(Number);
+  if (wordAt(r,c,other(P.dir))) P.dir = other(P.dir);
+  render();
+}
+
+function nWords(e){ return e.de.trim().split(/\s+/).length; }
+function sizeText(e, long){
+  const n = nWords(e);
+  return e.a.length + (long ? ' letters' : '') + (n>1 ? ', ' + n + ' words' : '');
+}
+
+function cellsOf(e){
+  const out = [];
+  for (let k=0;k<e.a.length;k++) out.push((e.r+(e.d==='D'?k:0))+','+(e.c+(e.d==='A'?k:0)));
+  return out;
+}
+
+function render(){
+  if (!P) return;
+  document.querySelectorAll('#grid .cell').forEach(x => x.classList.remove('sel','word','bad','given'));
+  const w = curWord();
+  if (w){
+    cellsOf(w).forEach(k => $('c'+k).classList.add('word'));
+    $('clue').textContent = w.n + (w.d==='A'?' Across: ':' Down: ') + w.en + ' (' + sizeText(w,true) + ')';
+  }
+  if (P.sel) $('c'+P.sel).classList.add('sel');
+
+  // letters, hint colour, and gentle "not quite" feedback on fully filled wrong words
+  for (const k in P.ans){
+    $('t'+k).textContent = P.guess[k] || '';
+    if (P.given[k]) $('c'+k).classList.add('given');
+  }
+  P.entries.forEach(e => {
+    const cs = cellsOf(e);
+    if (cs.every(k => P.guess[k])) cs.forEach(k => { if (P.guess[k]!==P.ans[k]) $('c'+k).classList.add('bad'); });
+  });
+
+  const cp = $('cluepanel'), top = cp.scrollTop;
+  cp.innerHTML = '<div class="cl">' + clueListHTML() + '</div>';
+  cp.scrollTop = top;
+
+  const canReveal = P.hints<=0 && P.reveals>0 && !P.done;
+  const rr = $('revealRow');
+  if ((rr.style.display==='block') !== canReveal){ rr.style.display = canReveal ? 'block' : 'none'; fit(); }
+
+  $('hintBtn').textContent = 'Hint (' + P.hints + ')';
+  $('hintBtn').disabled = P.hints<=0 || P.done;
+  $('ppts').textContent = save.points + ' pts';
+}
+
+function clueListHTML(){
+  const part = d => '<h3>' + (d==='A'?'Across':'Down') + '</h3><ul>' +
+    P.entries.map((e,i)=>({e,i})).filter(x=>x.e.d===d).sort((a,b)=>a.e.n-b.e.n).map(x=>{
+      const e = x.e, fin = cellsOf(e).every(k => P.guess[k]===P.ans[k]), cur = curWord()===e;
+      return '<li class="'+(fin?'fin ':'')+(cur?'cur':'')+'" onclick="jumpTo('+x.i+')"><b>'+e.n+'</b><span>'+e.en+' ('+sizeText(e,false)+')</span></li>';
+    }).join('') + '</ul>';
+  return part('A') + part('D');
+}
+function jumpTo(i){
+  if (!P || P.done) return;
+  const e = P.entries[i];
+  P.dir = e.d; P.sel = e.r+','+e.c;
+  closeM(); render();
+}
+function showClues(){
+  show('<h2>All clues</h2><div class="cl">' + clueListHTML() + '</div><button class="main" onclick="closeM()">Close</button>');
+}
+
+function step(dir){
+  // next / previous cell within the current word, skipping hint-filled cells
+  const w = curWord(); if (!w) return null;
+  const cs = cellsOf(w); let i = cs.indexOf(P.sel);
+  for (i += dir; i>=0 && i<cs.length; i += dir) if (!P.given[cs[i]]) return cs[i];
+  return null;
+}
+function type(ch){
+  if (P.done || !P.sel || P.given[P.sel]) return;
+  P.guess[P.sel] = ch;
+  const here = P.sel;
+  const nx = step(1); if (nx) P.sel = nx;
+  render(); sayDone(here); noteWrong(here); checkWin();
+}
+function backspace(){
+  if (P.done || !P.sel) return;
+  if (P.guess[P.sel] && !P.given[P.sel]){ delete P.guess[P.sel]; render(); return; }
+  const pv = step(-1);
+  if (pv){ P.sel = pv; delete P.guess[pv]; }
+  render();
+}
+function hint(){
+  if (P.hints<=0 || P.done) return;
+  const w = curWord();
+  if (!w){ $('clue').textContent = 'Pick a word first, then tap Hint'; return; }
+  for (const k of cellsOf(w)){
+    if (P.guess[k] !== P.ans[k]){
+      P.guess[k] = P.ans[k]; P.given[k] = true; P.hints--; P.flag[w.de] = true;
+      render(); checkWin(); return;
+    }
+  }
+  $('clue').textContent = 'That word is already complete!';
+}
+function askReveal(){
+  if (!P || P.done || P.hints>0 || P.reveals<=0) return;
+  const w = curWord();
+  if (!w){ $('clue').textContent = 'Pick a word first, then tap Reveal'; return; }
+  if (cellsOf(w).every(k => P.guess[k]===P.ans[k])){ $('clue').textContent = 'That word is already complete!'; return; }
+  show('<h2>Reveal this word?</h2><p>This fills in the whole answer for <b>&ldquo;'+w.en+'&rdquo;</b>. You only get one reveal per level, and it takes 20 points off.</p>'
+     + '<button class="main" onclick="doReveal()">Reveal the word</button>'
+     + '<button class="alt" onclick="closeM()">Keep trying</button>');
+}
+function doReveal(){
+  closeM();
+  const w = curWord();
+  if (!w || P.done || P.hints>0 || P.reveals<=0) return;
+  cellsOf(w).forEach(k => { P.guess[k] = P.ans[k]; P.given[k] = true; });
+  P.reveals--; P.revealUsed = true; P.flag[w.de] = true;
+  render(); checkWin();
+}
+function checkWin(){
+  for (const k in P.ans) if (P.guess[k] !== P.ans[k]) return;
+  win();
+}
+
+/* ======================= Win / badges ======================= */
+function win(){
+  P.done = true;
+  const used = 3 - P.hints;
+  let pts = Math.max(40, 100 - used*20);
+  if (P.revealUsed) pts = Math.max(20, pts - 20);
+  save.points += pts;
+
+  if (save.last !== today()){
+    save.streak = (save.last === yesterday()) ? save.streak + 1 : 1;
+    save.last = today();
+  }
+  if (P.kind === 'unit'){
+    save.done[P.unit.id] = true;
+    save.plays[P.unit.id] = (save.plays[P.unit.id] || 0) + 1;
+  } else if (P.kind === 'daily'){
+    save.daily = today();
+  }
+  // tricky-word bookkeeping: trouble adds to the list, clean solves take words off it
+  let cleared = 0;
+  P.entries.forEach(e => {
+    if (P.flag[e.de]) save.weak[e.de] = Math.min(5, (save.weak[e.de] || 0) + 1);
+    else if (save.weak[e.de]){ save.weak[e.de]--; if (save.weak[e.de] <= 0){ delete save.weak[e.de]; cleared++; } }
+  });
+
+  const fresh = [];
+  const give = b => { if (!save.badges.includes(b)){ save.badges.push(b); fresh.push(b); } };
+  give('first');
+  if (P.kind === 'daily') give('daily');
+  if (P.kind === 'practice') give('practice');
+  if (used===0) give('nohint');
+  if (save.streak>=3) give('streak3');
+  if (save.streak>=7) give('streak7');
+  if (Object.keys(save.done).length>=3) give('units3');
+  if (Object.keys(save.done).length>=10) give('units10');
+  if (save.points>=500) give('pts500');
+  persist(); render();
+
+  const next = (P.kind === 'unit' && P.index+1 < UNITS.length) ? P.index+1 : -1;
+  let h = '<h2>Gl&uuml;ckwunsch!</h2>';
+  h += '<p>You earned <b>'+pts+' points</b>' + (used || P.revealUsed ? ' ('+[used ? used+' hint'+(used>1?'s':'') : '', P.revealUsed ? '1 revealed word' : ''].filter(Boolean).join(' and ')+' used).' : ' with no hints!') + '</p>';
+  if (cleared) h += '<p>You cleared <b>'+cleared+' tricky word'+(cleared>1?'s':'')+'</b> from your practice list!</p>';
+  if (fresh.length) h += '<p>New badges:<br>' + fresh.map(b=>'<span class="badge">'+BADGES[b]+'</span>').join('') + '</p>';
+  h += '<p style="margin-top:14px"><b>'+(P.kind==='unit' ? 'Words you learned' : 'Words in this puzzle')+'</b></p><table>'
+     + (P.recap = P.entries.slice().sort((a,b)=>a.a.localeCompare(b.a))).map((e,i)=>'<tr><td>'+e.de+'</td><td>'+e.en+'</td>'
+         + (hasSound() ? '<td class="spkcell"><button class="spk" onclick="sayRecap('+i+')" aria-label="Hear '+e.de+'">&#128266;</button></td>' : '') + '</tr>').join('')
+     + '</table>';
+  if (next>=0) h += '<button class="main" onclick="startUnit('+next+')">Next: '+UNITS[next].title+'</button>';
+  h += '<button class="'+(next>=0?'alt':'main')+'" onclick="goHome()">Back to home</button>';
+  show(h);
+}
+
+function showBadges(){
+  let h = '<h2>My badges</h2><p>' + Object.keys(BADGES).map(b =>
+    '<span class="badge'+(save.badges.includes(b)?'':' off')+'">'+BADGES[b]+'</span>').join('') + '</p>';
+  h += '<button class="main" onclick="closeM()">Close</button>';
+  show(h);
+}
+function show(h){ $('mbox').innerHTML = h; $('modal').style.display = 'flex'; }
+function closeM(){ $('modal').style.display = 'none'; }
+
+/* ======================= Wiring ======================= */
+(function buildKeyboard(){
+  const kb = $('kb');
+  ['QWERTYUIOP','ASDFGHJKL','ZXCVBNM'].forEach((row,i)=>{
+    const d = document.createElement('div'); d.className = 'krow';
+    [...row].forEach(ch=>{
+      const b = document.createElement('button'); b.className='k'; b.textContent=ch;
+      b.onclick = () => type(ch); d.appendChild(b);
+    });
+    if (i===2){
+      const bk = document.createElement('button'); bk.className='k wide'; bk.textContent='\u232B';
+      bk.setAttribute('aria-label','Delete'); bk.onclick = backspace; d.appendChild(bk);
+    }
+    kb.appendChild(d);
+  });
+})();
+
+(function buildAccents(){
+  const d = $('acc');
+  [...'ÄÖÜß'].forEach(ch => {
+    const b = document.createElement('button'); b.className = 'k acc'; b.textContent = ch;
+    b.onclick = () => type(ch); d.appendChild(b);
+  });
+})();
+
+$('hintBtn').onclick = hint;
+$('revealBtn').onclick = askReveal;
+$('dirBtn').onclick = toggleDir;
+$('clueBtn').onclick = showClues;
+$('soundBtn').onclick = () => { save.sound = !save.sound; persist(); renderHome(); if (save.sound) say('hallo', true); };
+$('openAllBtn').onclick = () => { save.openAll = !save.openAll; persist(); renderHome(); };
+$('backBtn').onclick = goHome;
+$('badgesBtn').onclick = showBadges;
+$('resetBtn').onclick = () => {
+  if (confirm('Reset all points, streaks, badges and unit progress?')){ save = BLANK(); persist(); renderHome(); }
+};
+window.addEventListener('resize', () => { fit(); });
+window.addEventListener('orientationchange', () => { setTimeout(fit, 200); });
+
+// Physical keyboard: letters; ä ö ü ß typed directly, or " + a/o/u for umlauts and ' + s for ß
+let pendingAcc = null;
+document.addEventListener('keydown', ev => {
+  if (!P || !$('play').classList.contains('on') || $('modal').style.display==='flex') return;
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  const k = ev.key;
+  if (k === '"')                  { ev.preventDefault(); pendingAcc = 'diaer'; return; }
+  if (k === "'" || k === '`')     { ev.preventDefault(); pendingAcc = 'sharp'; return; }
+  if (/^[a-zA-Z]$/.test(k)){
+    const c = k.toLowerCase(); let out = k.toUpperCase();
+    if (pendingAcc==='diaer' && 'aou'.includes(c)) out = {a:'Ä',o:'Ö',u:'Ü'}[c];
+    else if (pendingAcc==='sharp' && c==='s') out = 'ß';
+    pendingAcc = null; type(out); return;
+  }
+  if (/^[äöüÄÖÜß]$/.test(k)){ pendingAcc = null; type(k==='ß' ? 'ß' : k.toUpperCase()); return; }
+  if (k==='Backspace'){ ev.preventDefault(); pendingAcc = null; backspace(); }
+  else if (k===' '){ ev.preventDefault(); toggleDir(); }
+});
+
+renderHome();
+</script>
+</body>
+</html>
